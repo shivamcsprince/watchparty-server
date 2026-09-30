@@ -12,6 +12,22 @@ function required(name) {
   return value.trim();
 }
 
+function parseInteger(name, value, { min, max }) {
+  const number = Number(value);
+  if (!Number.isInteger(number) || number < min || number > max) {
+    throw new Error(`${name} must be an integer between ${min} and ${max} (got "${value}")`);
+  }
+  return number;
+}
+
+function requiredSecret(name) {
+  const value = required(name);
+  if (value.length < 32) {
+    throw new Error(`${name} must be at least 32 characters long`);
+  }
+  return value;
+}
+
 function parsePort(value) {
   const port = Number(value);
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
@@ -27,6 +43,20 @@ export const config = Object.freeze({
   isProduction: nodeEnv === 'production',
   port: parsePort(process.env.PORT ?? '4000'),
   databaseUrl: required('DATABASE_URL'),
+  jwtSecret: requiredSecret('JWT_SECRET'),
+  jwtExpiresIn: '1h',
+  // bcrypt cost: each +1 doubles the time. 10 is a good balance on small free servers.
+  bcryptRounds: parseInteger('BCRYPT_ROUNDS', process.env.BCRYPT_ROUNDS ?? '10', {
+    min: 4,
+    max: 14,
+  }),
+  // Number of reverse proxies in front of the app (Render = 1). Needed so that
+  // rate limiting sees the real client IP instead of the proxy's IP.
+  trustProxy: parseInteger('TRUST_PROXY', process.env.TRUST_PROXY ?? '0', { min: 0, max: 5 }),
+  authRateLimitMax: parseInteger('AUTH_RATE_LIMIT_MAX', process.env.AUTH_RATE_LIMIT_MAX ?? '30', {
+    min: 1,
+    max: 100000,
+  }),
   // Comma-separated list, e.g. "http://localhost:5173,https://my-app.vercel.app"
   clientOrigins: (process.env.CLIENT_ORIGIN ?? 'http://localhost:5173')
     .split(',')
