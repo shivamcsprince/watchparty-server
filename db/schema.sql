@@ -1,0 +1,2 @@
+-- Database schema for the Watch Party app.
+-- Tables are added phase by phase (users in Phase 2, rooms/participants/messages after).
