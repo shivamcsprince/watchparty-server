@@ -1,30 +1,31 @@
 import { Server } from 'socket.io';
 import { config } from '../config/env.js';
+import { authenticateSocket } from './socketAuth.js';
+import { RoomHandler } from './RoomHandler.js';
 
 /**
- * Wraps the Socket.IO server. In later phases this class will register the
- * auth middleware and the feature handlers (rooms, playback, roles, chat).
+ * Wraps the Socket.IO server: CORS, authentication, and one handler per connection.
+ * Later phases register more handlers here (playback, roles, chat).
  */
 export class SocketServer {
-  constructor(httpServer) {
+  constructor(httpServer, { roomManager }) {
     this.io = new Server(httpServer, {
       cors: { origin: config.clientOrigins, methods: ['GET', 'POST'] },
     });
-    this.#registerConnectionHandler();
+    this.roomManager = roomManager;
+
+    this.io.use(authenticateSocket);
+    this.io.on('connection', (socket) => this.#onConnection(socket));
   }
 
-  #registerConnectionHandler() {
-    this.io.on('connection', (socket) => {
-      console.log(`[socket] connected: ${socket.id}`);
+  #onConnection(socket) {
+    const { username } = socket.data.user;
+    console.log(`[socket] connected: ${socket.id} (${username})`);
 
-      // Phase 1 smoke test: the client sends "ping_check" and gets "pong" back.
-      socket.on('ping_check', (callback) => {
-        if (typeof callback === 'function') callback('pong');
-      });
+    new RoomHandler({ io: this.io, socket, roomManager: this.roomManager }).register();
 
-      socket.on('disconnect', (reason) => {
-        console.log(`[socket] disconnected: ${socket.id} (${reason})`);
-      });
+    socket.on('disconnect', (reason) => {
+      console.log(`[socket] disconnected: ${socket.id} (${username}, ${reason})`);
     });
   }
 

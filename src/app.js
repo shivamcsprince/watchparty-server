@@ -8,8 +8,21 @@ import { UserRepository } from './repositories/UserRepository.js';
 import { AuthService } from './auth/AuthService.js';
 import { createAuthRouter } from './auth/authRoutes.js';
 import { AppError } from './utils/AppError.js';
+import { RoomRepository } from './repositories/RoomRepository.js';
+import { RoomManager } from './rooms/RoomManager.js';
+import { RoomService } from './rooms/RoomService.js';
+import { createRoomRouter } from './rooms/roomRoutes.js';
+import { Broadcaster } from './socket/Broadcaster.js';
 
-export function createApp() {
+export function createApp({ roomManager } = {}) {
+  const roomRepository = new RoomRepository();
+  // REST-only usage (e.g. auth tests) gets a manager with a silent broadcaster.
+  roomManager ??= new RoomManager({
+    roomRepository,
+    broadcaster: new Broadcaster(),
+    capacity: config.roomCapacity,
+  });
+
   const app = express();
 
   app.set('trust proxy', config.trustProxy);
@@ -38,6 +51,7 @@ export function createApp() {
   // Dependencies are created here and passed down (simple dependency injection).
   const authService = new AuthService(new UserRepository());
   app.use('/api/auth', createAuthRouter(authService));
+  app.use('/api/rooms', createRoomRouter(new RoomService({ roomRepository, roomManager })));
 
   app.use((req, res) => {
     res.status(404).json({ error: 'Not found' });

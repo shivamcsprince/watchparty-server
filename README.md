@@ -22,18 +22,49 @@ node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 
 - http://localhost:4000/health -> server is alive (does not touch the database)
 - http://localhost:4000/health/db -> database is reachable
-- `npm run check:socket` -> WebSocket connection test (server must be running)
-- `npm test` -> integration tests (create and delete their own test users)
+- `npm test` -> unit + integration tests (they create and delete their own test users)
 
-## API (Phase 2)
+## Manual test with two terminals
 
-| Method | Path                 | Body                            | Notes                                 |
-| ------ | -------------------- | ------------------------------- | ------------------------------------- |
-| POST   | `/api/auth/register` | `{ email, username, password }` | 201 + `{ user, token }`               |
-| POST   | `/api/auth/login`    | `{ email, password }`           | 200 + `{ user, token }`               |
-| GET    | `/api/auth/me`       | -                               | needs `Authorization: Bearer <token>` |
+Register two users first (see the auth API below), then:
 
-Tokens expire after 1 hour.
+```powershell
+# terminal 1: logs in, creates a room, prints the code and waits for events
+node scripts/room-demo.js create alice@example.com password123
+
+# terminal 2: joins that room
+node scripts/room-demo.js join ABCD2345 bob@example.com password123
+```
+
+## REST API
+
+| Method | Path                 | Body                            | Notes                                                         |
+| ------ | -------------------- | ------------------------------- | ------------------------------------------------------------- |
+| POST   | `/api/auth/register` | `{ email, username, password }` | 201 + `{ user, token }`                                       |
+| POST   | `/api/auth/login`    | `{ email, password }`           | 200 + `{ user, token }`                                       |
+| GET    | `/api/auth/me`       | -                               | needs `Authorization: Bearer <token>`                         |
+| POST   | `/api/rooms`         | -                               | needs token; creator becomes Host; 201 + `{ room }`           |
+| GET    | `/api/rooms/:code`   | -                               | needs token; `{ room: { code, participantCount, capacity } }` |
+
+Tokens expire after 1 hour. Room codes are 8 characters (letters and digits, no look-alikes such as 0/O or 1/I);
+input is accepted in any case and with spaces or dashes.
+
+## Socket.IO events
+
+Connect with `io(url, { auth: { token } })`. The user's identity comes from the token, never from event payloads.
+
+| Event              | Direction            | Payload                                    | Notes                                                                        |
+| ------------------ | -------------------- | ------------------------------------------ | ---------------------------------------------------------------------------- |
+| `join_room`        | client -> server     | `{ roomId }` (the 8-character code)        | Ack: `{ ok: true, room, you, participants }` or `{ ok: false, error, code }` |
+| `leave_room`       | client -> server     | `{}`                                       | Ack: `{ ok: true }`                                                          |
+| `user_joined`      | server -> others     | `{ username, userId, role, participants }` | Not sent to the joiner                                                       |
+| `user_left`        | server -> room       | `{ username, userId, participants }`       | Also sent on disconnect                                                      |
+| `session_replaced` | server -> one client | `{ roomId }`                               | The same user joined from another tab                                        |
+
+Error codes: `INVALID_REQUEST`, `ROOM_NOT_FOUND`, `ROOM_FULL`, `INTERNAL_ERROR`.
+
+Rules: the room creator joins as `host`, everyone else as `participant`. A connection is in one room at a time.
+Room capacity defaults to 50 (`ROOM_CAPACITY`).
 
 ## Scripts
 

@@ -12,9 +12,9 @@
     "start": "node src/index.js",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "check:socket": "node scripts/socket-check.js",
     "db:migrate": "node --env-file=.env src/db/migrate.js",
-    "test": "node --env-file=.env --test"
+    "test": "node --env-file=.env --test",
+    "demo": "node scripts/room-demo.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

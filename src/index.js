@@ -1,16 +1,13 @@
-import http from 'node:http';
 import { config } from './config/env.js';
-import { createApp } from './app.js';
-import { SocketServer } from './socket/SocketServer.js';
+import { createServer } from './server.js';
 import { pool } from './db/pool.js';
 
-const app = createApp();
-const httpServer = http.createServer(app);
-const socketServer = new SocketServer(httpServer);
+const { httpServer, socketServer } = createServer();
 
 httpServer.listen(config.port, () => {
   console.log(`[server] listening on port ${config.port} (${config.nodeEnv})`);
   console.log(`[server] allowed client origins: ${config.clientOrigins.join(', ')}`);
+  console.log(`[server] room capacity: ${config.roomCapacity}`);
 });
 
 // Graceful shutdown: Render sends SIGTERM on every redeploy.

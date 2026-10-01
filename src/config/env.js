@@ -53,6 +53,15 @@ export const config = Object.freeze({
   // Number of reverse proxies in front of the app (Render = 1). Needed so that
   // rate limiting sees the real client IP instead of the proxy's IP.
   trustProxy: parseInteger('TRUST_PROXY', process.env.TRUST_PROXY ?? '0', { min: 0, max: 5 }),
+  roomCapacity: parseInteger('ROOM_CAPACITY', process.env.ROOM_CAPACITY ?? '50', {
+    min: 2,
+    max: 1000,
+  }),
+  roomCreateRateLimitMax: parseInteger(
+    'ROOM_CREATE_RATE_LIMIT_MAX',
+    process.env.ROOM_CREATE_RATE_LIMIT_MAX ?? '20',
+    { min: 1, max: 100000 },
+  ),
   authRateLimitMax: parseInteger('AUTH_RATE_LIMIT_MAX', process.env.AUTH_RATE_LIMIT_MAX ?? '30', {
     min: 1,
     max: 100000,
