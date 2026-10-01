@@ -1,3 +1,4 @@
+import { PlaybackState } from './PlaybackState.js';
 import { ROLES } from './roles.js';
 
 export function roomChannel(code) {
@@ -18,10 +19,14 @@ export class Room {
     this.id = id;
     this.code = code;
     this.hostUserId = hostUserId;
-    this.videoId = videoId;
+    this.playback = new PlaybackState({ videoId });
     this.createdAt = createdAt;
     this.#broadcaster = broadcaster;
     this.#capacity = capacity;
+  }
+
+  get videoId() {
+    return this.playback.videoId;
   }
 
   get channel() {

@@ -1,7 +1,7 @@
-import { z, ZodError } from 'zod';
-import { AppError } from '../utils/AppError.js';
+import { z } from 'zod';
 import { roomChannel } from '../rooms/Room.js';
 import { roomCodeSchema } from '../rooms/roomCode.js';
+import { withAck } from './ack.js';
 
 // In the assignment's contract the field is called "roomId"; its value is the 8-character room code.
 const joinRoomSchema = z.object({ roomId: roomCodeSchema });
@@ -13,20 +13,21 @@ const joinRoomSchema = z.object({ roomId: roomCodeSchema });
  * Business rules live in Room / RoomManager, not here.
  */
 export class RoomHandler {
-  constructor({ io, socket, roomManager }) {
+  constructor({ io, socket, roomManager, limiter }) {
     this.io = io;
     this.socket = socket;
     this.roomManager = roomManager;
+    this.limiter = limiter;
   }
 
   register() {
     this.socket.on(
       'join_room',
-      this.#withAck((payload) => this.#joinRoom(payload)),
+      withAck((payload) => this.#joinRoom(payload), { limiter: this.limiter }),
     );
     this.socket.on(
       'leave_room',
-      this.#withAck(() => this.#leaveRoom()),
+      withAck(() => this.#leaveRoom(), { limiter: this.limiter }),
     );
     this.socket.on('disconnect', () => this.#leaveCurrentRoom());
   }
@@ -116,32 +117,7 @@ export class RoomHandler {
       room: room.toJSON(),
       you: participant.toJSON(),
       participants: room.listParticipants(),
+      playback: room.playback.snapshot(),
     };
-  }
-
-  /**
-   * Wraps an event handler so the client always gets an acknowledgement
-   * ({ ok: true, ... } or { ok: false, error, code }) and an error can never crash the server.
-   */
-  #withAck(handler) {
-    return async (payload, callback) => {
-      const reply = typeof callback === 'function' ? callback : () => {};
-      try {
-        reply({ ok: true, ...(await handler(payload)) });
-      } catch (err) {
-        reply(this.#toErrorResponse(err));
-      }
-    };
-  }
-
-  #toErrorResponse(err) {
-    if (err instanceof ZodError) {
-      return { ok: false, error: 'Invalid request', code: 'INVALID_REQUEST' };
-    }
-    if (err instanceof AppError) {
-      return { ok: false, error: err.message, code: err.code ?? 'ERROR' };
-    }
-    console.error('[socket] Unexpected error:', err);
-    return { ok: false, error: 'Something went wrong', code: 'INTERNAL_ERROR' };
   }
 }

@@ -1,7 +1,9 @@
 import { Server } from 'socket.io';
 import { config } from '../config/env.js';
 import { authenticateSocket } from './socketAuth.js';
+import { TokenBucket } from '../utils/TokenBucket.js';
 import { RoomHandler } from './RoomHandler.js';
+import { PlaybackHandler } from './PlaybackHandler.js';
 
 /**
  * Wraps the Socket.IO server: CORS, authentication, and one handler per connection.
@@ -22,7 +24,11 @@ export class SocketServer {
     const { username } = socket.data.user;
     console.log(`[socket] connected: ${socket.id} (${username})`);
 
-    new RoomHandler({ io: this.io, socket, roomManager: this.roomManager }).register();
+    // One limiter per connection, shared by all its event handlers (burst of 20, then 10 events/second).
+    const limiter = new TokenBucket({ capacity: 20, refillPerSecond: 10 });
+    const { io, roomManager } = this;
+    new RoomHandler({ io, socket, roomManager, limiter }).register();
+    new PlaybackHandler({ socket, roomManager, limiter }).register();
 
     socket.on('disconnect', (reason) => {
       console.log(`[socket] disconnected: ${socket.id} (${username}, ${reason})`);

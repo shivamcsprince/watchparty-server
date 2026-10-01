@@ -33,6 +33,10 @@ export class RoomRepository {
     }
   }
 
+  async updateVideoId(id, videoId) {
+    await this.db.query('UPDATE rooms SET video_id = $2 WHERE id = $1', [id, videoId]);
+  }
+
   async findByCode(code) {
     const { rows } = await this.db.query('SELECT * FROM rooms WHERE code = $1', [code]);
     return toRoom(rows[0]);

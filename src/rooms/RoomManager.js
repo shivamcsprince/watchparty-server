@@ -82,6 +82,16 @@ export class RoomManager {
     return { room, participant, replaced };
   }
 
+  /**
+   * Saves the room's current video so it survives a server restart.
+   * Runs in the background: a database hiccup must not block or fail playback for everyone.
+   */
+  persistVideoId(room) {
+    return this.#roomRepository
+      .updateVideoId(room.id, room.videoId)
+      .catch((err) => console.error(`[rooms] Could not save video for ${room.code}:`, err.message));
+  }
+
   /** Removes a participant. Returns { room, participant } or null if nothing was removed. */
   leave({ code, userId, socketId }) {
     const room = this.#rooms.get(code);
