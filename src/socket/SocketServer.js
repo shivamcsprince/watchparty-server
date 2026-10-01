@@ -4,6 +4,8 @@ import { authenticateSocket } from './socketAuth.js';
 import { TokenBucket } from '../utils/TokenBucket.js';
 import { RoomHandler } from './RoomHandler.js';
 import { PlaybackHandler } from './PlaybackHandler.js';
+import { ModerationHandler } from './ModerationHandler.js';
+import { RoomModeration } from '../rooms/RoomModeration.js';
 
 /**
  * Wraps the Socket.IO server: CORS, authentication, and one handler per connection.
@@ -15,6 +17,7 @@ export class SocketServer {
       cors: { origin: config.clientOrigins, methods: ['GET', 'POST'] },
     });
     this.roomManager = roomManager;
+    this.moderation = new RoomModeration({ roomManager });
 
     this.io.use(authenticateSocket);
     this.io.on('connection', (socket) => this.#onConnection(socket));
@@ -28,7 +31,9 @@ export class SocketServer {
     const limiter = new TokenBucket({ capacity: 20, refillPerSecond: 10 });
     const { io, roomManager } = this;
     new RoomHandler({ io, socket, roomManager, limiter }).register();
+    const { moderation } = this;
     new PlaybackHandler({ socket, roomManager, limiter }).register();
+    new ModerationHandler({ io, socket, roomManager, moderation, limiter }).register();
 
     socket.on('disconnect', (reason) => {
       console.log(`[socket] disconnected: ${socket.id} (${username}, ${reason})`);

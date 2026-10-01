@@ -29,7 +29,7 @@ export class RoomHandler {
       'leave_room',
       withAck(() => this.#leaveRoom(), { limiter: this.limiter }),
     );
-    this.socket.on('disconnect', () => this.#leaveCurrentRoom());
+    this.socket.on('disconnect', () => this.#leaveCurrentRoom({ explicit: false }));
   }
 
   async #joinRoom(payload) {
@@ -51,7 +51,7 @@ export class RoomHandler {
     });
 
     // One room per connection: only leave the old room once the new join has succeeded.
-    if (previousCode && previousCode !== code) await this.#leaveCurrentRoom();
+    if (previousCode && previousCode !== code) this.#leaveCurrentRoom({ explicit: true });
 
     if (replaced && replaced.socketId !== this.socket.id) {
       this.#evictReplacedSocket(replaced.socketId, room);
@@ -77,29 +77,28 @@ export class RoomHandler {
     return this.#snapshot(room, participant);
   }
 
-  async #leaveRoom() {
-    await this.#leaveCurrentRoom();
+  #leaveRoom() {
+    this.#leaveCurrentRoom({ explicit: true });
     return {};
   }
 
-  async #leaveCurrentRoom() {
+  /**
+   * `explicit` means the person chose to leave (Leave button / switching rooms), as opposed to a
+   * dropped connection. For the host this decides between "someone takes over now" and "grace period".
+   */
+  #leaveCurrentRoom({ explicit }) {
     const code = this.socket.data.roomCode;
     if (!code) return;
     this.socket.data.roomCode = undefined;
     this.socket.leave(roomChannel(code));
 
-    const { user } = this.socket.data;
-    const result = this.roomManager.leave({
+    // The manager removes them, tells the room (user_left) and handles host succession.
+    // It does nothing if this connection had already been replaced by a newer one.
+    this.roomManager.leave({
       code,
-      userId: user.userId,
+      userId: this.socket.data.user.userId,
       socketId: this.socket.id,
-    });
-    if (!result) return; // this connection had already been replaced by a newer one
-
-    result.room.broadcast('user_left', {
-      username: result.participant.username,
-      userId: result.participant.userId,
-      participants: result.room.listParticipants(),
+      explicit,
     });
   }
 
@@ -118,6 +117,7 @@ export class RoomHandler {
       you: participant.toJSON(),
       participants: room.listParticipants(),
       playback: room.playback.snapshot(),
+      requests: room.listRequestsFor(participant),
     };
   }
 }

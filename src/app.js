@@ -21,6 +21,8 @@ export function createApp({ roomManager } = {}) {
     roomRepository,
     broadcaster: new Broadcaster(),
     capacity: config.roomCapacity,
+    hostGraceMs: config.hostGraceMs,
+    requestTtlMs: config.requestTtlMs,
   });
 
   const app = express();

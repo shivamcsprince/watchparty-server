@@ -1,5 +1,5 @@
 /**
- * Lets domain classes (Room) send events to a room without importing Socket.IO.
+ * Lets domain classes (Room) send events without importing Socket.IO.
  * It is created first and bound to the Socket.IO server afterwards, which avoids
  * a circular dependency (Socket.IO needs the HTTP server, which needs the app,
  * which needs the RoomManager, which needs a broadcaster).
@@ -17,5 +17,11 @@ export class Broadcaster {
     let target = this.#io.to(channel);
     if (exceptSocketId) target = target.except(exceptSocketId);
     target.emit(event, payload);
+  }
+
+  /** Every socket automatically sits in a private room named after its own id. */
+  emitToSocket(socketId, event, payload) {
+    if (!this.#io) return;
+    this.#io.to(socketId).emit(event, payload);
   }
 }

@@ -62,6 +62,16 @@ export const config = Object.freeze({
     process.env.ROOM_CREATE_RATE_LIMIT_MAX ?? '20',
     { min: 1, max: 100000 },
   ),
+  // How long a host may be absent before someone else takes over (default 2 minutes).
+  hostGraceMs: parseInteger('HOST_GRACE_MS', process.env.HOST_GRACE_MS ?? '120000', {
+    min: 50,
+    max: 3_600_000,
+  }),
+  // How long an approval request stays open (default 2 minutes).
+  requestTtlMs: parseInteger('REQUEST_TTL_MS', process.env.REQUEST_TTL_MS ?? '120000', {
+    min: 50,
+    max: 3_600_000,
+  }),
   authRateLimitMax: parseInteger('AUTH_RATE_LIMIT_MAX', process.env.AUTH_RATE_LIMIT_MAX ?? '30', {
     min: 1,
     max: 100000,

@@ -10,12 +10,14 @@ import { SocketServer } from './socket/SocketServer.js';
  * Composition root: the one place where all the pieces are created and connected.
  * Used by index.js (real server) and by the tests.
  */
-export function createServer() {
+export function createServer(overrides = {}) {
   const broadcaster = new Broadcaster();
   const roomManager = new RoomManager({
     roomRepository: new RoomRepository(),
     broadcaster,
-    capacity: config.roomCapacity,
+    capacity: overrides.capacity ?? config.roomCapacity,
+    hostGraceMs: overrides.hostGraceMs ?? config.hostGraceMs,
+    requestTtlMs: overrides.requestTtlMs ?? config.requestTtlMs,
   });
 
   const app = createApp({ roomManager });
