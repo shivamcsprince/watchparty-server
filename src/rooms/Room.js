@@ -1,3 +1,4 @@
+import { ChatLog } from './ChatLog.js';
 import { PlaybackState } from './PlaybackState.js';
 import { RequestQueue, serializeRequest } from './RequestQueue.js';
 import { ACTIONS, RolePolicy } from './RolePolicy.js';
@@ -30,6 +31,7 @@ export class Room {
     this.code = code;
     this.hostUserId = hostUserId;
     this.playback = new PlaybackState({ videoId });
+    this.chat = new ChatLog();
     this.createdAt = createdAt;
     this.#broadcaster = broadcaster;
     this.#capacity = capacity;

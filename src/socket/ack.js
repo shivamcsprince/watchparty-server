@@ -22,8 +22,12 @@ export function withAck(handler, { limiter } = {}) {
   return async (payload, callback) => {
     const reply = typeof callback === 'function' ? callback : () => {};
 
-    if (limiter && !limiter.tryConsume()) {
-      return reply({ ok: false, error: 'Too many requests, slow down', code: 'RATE_LIMITED' });
+    // `limiter` may be one limiter or a list (e.g. the connection-wide one plus a stricter one for chat).
+    const limiters = [limiter].flat().filter(Boolean);
+    for (const bucket of limiters) {
+      if (!bucket.tryConsume()) {
+        return reply({ ok: false, error: 'Too many requests, slow down', code: 'RATE_LIMITED' });
+      }
     }
 
     try {

@@ -6,6 +6,8 @@ export const ACTIONS = Object.freeze({
   REMOVE_PARTICIPANT: 'participants:remove',
   REQUEST_ACTION: 'requests:create', // ask a host/moderator to do something
   RESOLVE_REQUEST: 'requests:resolve', // approve or reject such a request
+  SEND_CHAT: 'chat:send',
+  SEND_REACTION: 'reactions:send',
 });
 
 const PERMISSIONS = Object.freeze({
@@ -14,9 +16,16 @@ const PERMISSIONS = Object.freeze({
     ACTIONS.ASSIGN_ROLE,
     ACTIONS.REMOVE_PARTICIPANT,
     ACTIONS.RESOLVE_REQUEST,
+    ACTIONS.SEND_CHAT,
+    ACTIONS.SEND_REACTION,
   ]),
-  [ROLES.MODERATOR]: new Set([ACTIONS.PLAYBACK_CONTROL, ACTIONS.RESOLVE_REQUEST]),
-  [ROLES.PARTICIPANT]: new Set([ACTIONS.REQUEST_ACTION]),
+  [ROLES.MODERATOR]: new Set([
+    ACTIONS.PLAYBACK_CONTROL,
+    ACTIONS.RESOLVE_REQUEST,
+    ACTIONS.SEND_CHAT,
+    ACTIONS.SEND_REACTION,
+  ]),
+  [ROLES.PARTICIPANT]: new Set([ACTIONS.REQUEST_ACTION, ACTIONS.SEND_CHAT, ACTIONS.SEND_REACTION]),
   [ROLES.VIEWER]: new Set(), // fully read-only
 });
 

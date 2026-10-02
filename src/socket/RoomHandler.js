@@ -118,6 +118,7 @@ export class RoomHandler {
       participants: room.listParticipants(),
       playback: room.playback.snapshot(),
       requests: room.listRequestsFor(participant),
+      messages: room.chat.recent(),
     };
   }
 }

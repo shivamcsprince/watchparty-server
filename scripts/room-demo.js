@@ -11,6 +11,8 @@
 //   request play|pause|seek <seconds>|video <link>      (participants: ask for approval)
 //   requests                              list pending requests
 //   approve <id-start> / reject <id-start>              (host or moderator)
+//   say <message>                        chat (not viewers)
+//   react <emoji>                         one of: 👍 ❤️ 😂 😮 😢 👏 🔥 🎉 (not viewers)
 //   leave                                 leave the room on purpose (then press Ctrl+C)
 //   quit                                  disconnect (as if the connection dropped)
 //
@@ -97,6 +99,8 @@ async function main() {
     'participant_removed',
     'sync_state',
     'session_replaced',
+    'chat_message',
+    'reaction',
   ]) {
     socket.on(event, (payload) => {
       updateParticipants(payload);
@@ -170,6 +174,10 @@ async function main() {
         return resolve('approve', rest[0]);
       case 'reject':
         return resolve('reject', rest[0]);
+      case 'say':
+        return send('send_message', { text: rest.join(' ') });
+      case 'react':
+        return send('send_reaction', { emoji: rest[0] });
       case 'leave':
         return send('leave_room', {});
       case 'quit':
@@ -193,7 +201,7 @@ async function main() {
       updateParticipants(response);
       for (const request of response.requests ?? []) pending.set(request.id, request);
       console.log(
-        `Connected as ${response.you.role}. Type a command (see top of scripts/room-demo.js) or Ctrl+C.`,
+        `Connected as ${response.you.role} (${response.messages?.length ?? 0} earlier chat messages). Type a command (see top of scripts/room-demo.js) or Ctrl+C.`,
       );
       readlineInterface = readline.createInterface({ input: process.stdin });
       readlineInterface.on('line', handleCommand);

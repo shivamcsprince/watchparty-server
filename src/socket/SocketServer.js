@@ -5,6 +5,7 @@ import { TokenBucket } from '../utils/TokenBucket.js';
 import { RoomHandler } from './RoomHandler.js';
 import { PlaybackHandler } from './PlaybackHandler.js';
 import { ModerationHandler } from './ModerationHandler.js';
+import { ChatHandler } from './ChatHandler.js';
 import { RoomModeration } from '../rooms/RoomModeration.js';
 
 /**
@@ -34,6 +35,15 @@ export class SocketServer {
     const { moderation } = this;
     new PlaybackHandler({ socket, roomManager, limiter }).register();
     new ModerationHandler({ io, socket, roomManager, moderation, limiter }).register();
+
+    // Chat and reactions are the easiest things to spam, so they get stricter limits of their own.
+    new ChatHandler({
+      socket,
+      roomManager,
+      limiter,
+      chatLimiter: new TokenBucket({ capacity: 5, refillPerSecond: 1 }),
+      reactionLimiter: new TokenBucket({ capacity: 10, refillPerSecond: 3 }),
+    }).register();
 
     socket.on('disconnect', (reason) => {
       console.log(`[socket] disconnected: ${socket.id} (${username}, ${reason})`);

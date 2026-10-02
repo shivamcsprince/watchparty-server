@@ -84,6 +84,10 @@ Connect with `io(url, { auth: { token } })`. The user's identity comes from the 
 | `request_action` | client -> server | `{ action: "play"\|"pause"\|"seek"\|"change_video", time?, videoId? }` | Participants only. Ack: `{ ok: true, request }` |
 | `resolve_request` | client -> server | `{ requestId, decision: "approve"\|"reject" }` | Host/moderator. First decision wins. Ack: `{ ok: true, status }` |
 | `list_requests` | client -> server | none | Approvers see all pending requests, others only their own |
+| `send_message` | client -> server | `{ text }` (1-500 characters) | Not viewers. Ack: `{ ok: true, message }` |
+| `send_reaction` | client -> server | `{ emoji }` (one of 👍 ❤️ 😂 😮 😢 👏 🔥 🎉) | Not viewers. Ack: `{ ok: true, reaction }` |
+| `chat_message` | server -> whole room | `{ id, userId, username, role, text, sentAt }` | Includes the sender. `role` is the role when it was sent |
+| `reaction` | server -> whole room | `{ id, userId, username, emoji, currentTime, sentAt }` | `currentTime` = video position (seconds) when they reacted |
 | `role_assigned` | server -> whole room | `{ userId, username, role, participants, reason? }` | A role changed. `reason` is `host_left` or `host_timeout` when a new host took over |
 | `participant_removed` | server -> whole room | `{ userId, username, participants }` | Also received by the removed person |
 | `request_created` | server -> approvers + requester | `{ request }` | `request = { id, action, params, requestedBy, createdAt, expiresAt }` |
@@ -93,7 +97,8 @@ Connect with `io(url, { auth: { token } })`. The user's identity comes from the 
 `playback` / `sync_state` fields: `playState` is `"playing"` or `"paused"`; `currentTime` is the position in seconds
 **at `serverTime`** (milliseconds since epoch, server clock). While playing, the position right now is
 `currentTime + (now - serverTime) / 1000`, where `now` is the client's time adjusted by its clock offset.
-`join_room`'s ack also contains `playback`, so a late joiner starts at the live position.
+`join_room`'s ack also contains `playback` (so a late joiner starts at the live position), `requests` (the pending
+approval requests that person may see) and `messages` (the last 50 chat messages).
 
 Error codes: `INVALID_REQUEST`, `ROOM_NOT_FOUND`, `ROOM_FULL`, `NOT_IN_ROOM`, `NO_VIDEO`, `FORBIDDEN`,
 `INVALID_TARGET`, `PARTICIPANT_NOT_FOUND`, `REQUEST_NOT_FOUND`, `TOO_MANY_REQUESTS`, `RATE_LIMITED`, `INTERNAL_ERROR`.
@@ -110,6 +115,14 @@ Error codes: `INVALID_REQUEST`, `ROOM_NOT_FOUND`, `ROOM_FULL`, `NOT_IN_ROOM`, `N
 The room creator is the host; everyone else joins as `participant`. The host cannot be demoted or removed, and
 `host` cannot be assigned with `assign_role`. Roles are not remembered: someone who leaves and comes back is a
 `participant` again.
+
+### Chat and reactions
+
+Messages are plain text: the server removes control characters but does **not** escape HTML, so clients must render
+them as text (React does this by default). The last 50 messages of a room are kept in memory and sent to people who
+join; they are not saved to the database, so a room that empties starts with a fresh chat. Reactions are not stored.
+Limits per connection: chat allows a burst of 5 then 1 per second; reactions a burst of 10 then 3 per second.
+Invalid attempts count against these limits.
 
 ### Approval requests
 
