@@ -28,21 +28,41 @@ export function createApp({ roomManager } = {}) {
   const app = express();
 
   app.set('trust proxy', config.trustProxy);
-  app.use(helmet());
+
+  // Helmet's default Cross-Origin-Resource-Policy (same-origin) blocks the
+  // CORS preflight from Vercel. Relax it to cross-origin so our API is
+  // reachable from the deployed client, and disable policies that aren't
+  // meaningful for a JSON API.
   app.use(
-    cors({
-      origin(origin, callback) {
-        // No Origin header = curl, Postman, health probes, server-to-server.
-        // Allow them, otherwise /health and room-demo.js break.
-        if (!origin) return callback(null, true);
-        if (config.clientOrigins.includes(origin)) return callback(null, true);
-        return callback(new Error(`Not allowed by CORS: ${origin}`));
-      },
-      credentials: false,
-      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization'],
+    helmet({
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+      crossOriginOpenerPolicy: false,
+      contentSecurityPolicy: false,
     }),
   );
+
+  const corsOptions = {
+    origin(origin, callback) {
+      // No Origin header = curl, Postman, health probes, server-to-server.
+      if (!origin) return callback(null, true);
+      if (config.clientOrigins.includes(origin)) return callback(null, true);
+      // Not allowed: resolve without an error so we don't turn this into a
+      // 500 in the error handler. The browser will see the missing
+      // Access-Control-Allow-Origin header and block the request itself.
+      return callback(null, false);
+    },
+    credentials: false,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    optionsSuccessStatus: 204,
+  };
+
+  app.use(cors(corsOptions));
+
+  // Express 5 does not route OPTIONS through the middleware stack the way
+  // Express 4 did, so we answer preflights explicitly here.
+  // app.options(/.*/, cors(corsOptions));
+
   app.use(express.json({ limit: '10kb' }));
 
   // Liveness check. Deliberately does NOT touch the database:
