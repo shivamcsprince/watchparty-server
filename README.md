@@ -217,6 +217,17 @@ For a deeper walkthrough, see [../watchparty-client/ARCHITECTURE.md](../watchpar
 7. Free tier sleeps after ~15 minutes of inactivity. First request takes
    ~30 s to wake. Worth mentioning in the demo.
 
-**Live URL:** _paste your Render URL here_
+**Live URL:** https://usa-untitled-toddler-interactions.trycloudflare.com
+
+### Running the public tunnel
+
+The public URL is a Cloudflare quick tunnel pointing at a server running
+inside a GitHub Codespace. To restart it:
+
+1. Open the Codespace for this repo.
+2. Terminal 1: `npm run dev` (Express on port 4000).
+3. Terminal 2:
+   ```bash
+   ./cloudflared tunnel --url http://localhost:4000
 
 _Full architecture overview: [../watchparty-client/ARCHITECTURE.md](../watchparty-client/ARCHITECTURE.md)._
