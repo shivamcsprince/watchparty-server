@@ -29,7 +29,20 @@ export function createApp({ roomManager } = {}) {
 
   app.set('trust proxy', config.trustProxy);
   app.use(helmet());
-  app.use(cors({ origin: config.clientOrigins }));
+  app.use(
+    cors({
+      origin(origin, callback) {
+        // No Origin header = curl, Postman, health probes, server-to-server.
+        // Allow them, otherwise /health and room-demo.js break.
+        if (!origin) return callback(null, true);
+        if (config.clientOrigins.includes(origin)) return callback(null, true);
+        return callback(new Error(`Not allowed by CORS: ${origin}`));
+      },
+      credentials: false,
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
+    }),
+  );
   app.use(express.json({ limit: '10kb' }));
 
   // Liveness check. Deliberately does NOT touch the database:
