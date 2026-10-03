@@ -1,6 +1,7 @@
 # watchparty-server
 
 Node.js + Express + Socket.IO backend for the YouTube Watch Party app.
+Pairs with [watchparty-client](../watchparty-client).
 
 ## Setup (Windows PowerShell)
 
@@ -11,8 +12,8 @@ npm run db:migrate                # creates/updates tables in your database
 npm run dev
 ```
 
-In `.env` set `DATABASE_URL` (Neon connection string) and `JWT_SECRET`.
-Generate a secret with:
+In `.env` set `DATABASE_URL` (Neon connection string), `JWT_SECRET` and
+`CLIENT_ORIGIN`. Generate a secret with:
 
 ```powershell
 node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
@@ -36,7 +37,7 @@ node scripts/room-demo.js create alice@example.com password123
 node scripts/room-demo.js join ABCD2345 bob@example.com password123
 ```
 
-Open more terminals for more people (`mo`-style short names won't work: usernames are 3-20 characters).
+Open more terminals for more people (usernames are 3-20 characters).
 Commands are listed at the top of `scripts/room-demo.js`; the main ones:
 
 | Who              | Commands                                                                   |
@@ -154,4 +155,68 @@ Permissions are decided on the server from the participant's stored role (`RoleP
 | `npm test`                        | Run tests                                      |
 | `npm run lint` / `npm run format` | ESLint / Prettier                              |
 
-_Full architecture overview and live URL will be added in later phases._
+## Environment variables
+
+| Var             | Example                                                                                       | Notes                                                |
+| --------------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| `DATABASE_URL`  | `postgres://user:pass@host/db?sslmode=require`                                                | Neon connection string. Never commit.                |
+| `JWT_SECRET`    | a long random hex string                                                                      | Never commit.                                        |
+| `CLIENT_ORIGIN` | dev: `http://localhost:5173` <br> prod: `https://watchparty-client.vercel.app`                | CORS allowlist for HTTP **and** Socket.IO handshake. |
+| `PORT`          | `4000`                                                                                        | Render sets this automatically.                      |
+| `ROOM_CAPACITY` | `50`                                                                                          | Optional.                                            |
+| `HOST_GRACE_MS` | `120000`                                                                                      | Optional. Host drop grace period.                    |
+| `REQUEST_TTL_MS`| `120000`                                                                                      | Optional. Approval request expiry.                   |
+
+## Integrating with the client
+
+The client ([watchparty-client](../watchparty-client)) talks to this server
+over two channels:
+
+1. **HTTP** for auth and room creation:
+   - `POST /api/auth/register`
+   - `POST /api/auth/login`
+   - `GET  /api/auth/me`
+   - `POST /api/rooms`
+2. **Socket.IO** for everything real-time. The client stores the JWT from
+   login/register, then connects with:
+
+   ```js
+   io(serverUrl, { auth: { token }, transports: ["websocket"] })
+   ```
+
+   `authenticateSocket` verifies the token in the handshake, so the client
+   never needs to (and never should) send a role or username on events.
+
+The client mirrors the role matrix above and hides/disables controls the
+current role can't use, but **every action is re-checked on the server**
+(`RolePolicy.can`). Forging a role in a payload does nothing; the server uses
+`socket.data.user.userId` to look up the real role.
+
+For a deeper walkthrough, see [../watchparty-client/ARCHITECTURE.md](../watchparty-client/ARCHITECTURE.md).
+
+## Deployment (Render)
+
+1. Push this repo to GitHub.
+2. Render → **New +** → **Web Service** → connect the repo.
+3. Settings:
+   - **Runtime:** Node
+   - **Build Command:** `npm install`
+   - **Start Command:** `node src/index.js`
+   - **Instance Type:** Free
+4. Environment variables (Render → service → Environment):
+   - `DATABASE_URL` = your Neon connection string
+   - `JWT_SECRET`   = a long random hex string
+   - `CLIENT_ORIGIN` = `http://localhost:5173` for now (update after the
+     client deploys to Vercel)
+   - Do **not** set `PORT` — Render injects it.
+5. Deploy. Note the URL, e.g.
+   `https://watchparty-server.onrender.com`.
+6. Once the client is on Vercel, update `CLIENT_ORIGIN` to the Vercel URL
+   (e.g. `https://watchparty-client.vercel.app`). Render redeploys
+   automatically.
+7. Free tier sleeps after ~15 minutes of inactivity. First request takes
+   ~30 s to wake. Worth mentioning in the demo.
+
+**Live URL:** _paste your Render URL here_
+
+_Full architecture overview: [../watchparty-client/ARCHITECTURE.md](../watchparty-client/ARCHITECTURE.md)._
